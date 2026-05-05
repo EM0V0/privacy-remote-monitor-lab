@@ -22,7 +22,8 @@ export function AuditStrip({ events }: { events: AuditRow[] }) {
         Recent accountability events
       </h2>
       <p className="mt-1 text-xs text-slate-500">
-        Append-only rows for demonstration — extend with WORM storage / SIEM export in production designs.
+        Append-only rows sealed with SHA-256 hash chains over canonical JSON payloads — verify programmatically via{" "}
+        <span className="font-mono">verifyAuditChainIntegrity()</span> when integrating SIEM / WORM exports.
       </p>
       <ul className="mt-3 divide-y divide-slate-100 text-sm">
         {events.map((e) => (

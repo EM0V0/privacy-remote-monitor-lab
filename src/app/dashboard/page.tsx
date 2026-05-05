@@ -7,7 +7,7 @@ import { ClinicalNotice } from "@/components/clinical-notice";
 import { DashboardChart } from "@/components/dashboard-chart";
 import { PrivacyAlgorithmPanel } from "@/components/privacy-algorithm-panel";
 import { computeMonitoringInsights } from "@/lib/monitoring-insights";
-import { epsilonSpentLast24h } from "@/lib/privacy/budget";
+import { getPrivacyAccountingSnapshot } from "@/lib/privacy/budget";
 import { getLatestDpReleaseFromAudit } from "@/lib/privacy/latest-audit-release";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -49,7 +49,7 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const insights = computeMonitoringInsights(series);
   const dpSnapshot = await getLatestDpReleaseFromAudit();
-  const budgetSpent24h = await epsilonSpentLast24h();
+  const accounting = await getPrivacyAccountingSnapshot();
 
   const auditRows = showAuditStrip
     ? await prisma.auditEvent.findMany({
@@ -77,7 +77,8 @@ export default async function DashboardPage({ searchParams }: Props) {
             </span>
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Robust analytics + ε-budget DP release · clinician tooling only — demonstration scope.
+            Secure-by-design demo: layered controls + explicit DP releases — see docs/THREAT_MODEL_STRIDE.md for STRIDE mapping
+            and deferred research items.
           </p>
         </div>
         <div className="flex gap-3">
@@ -106,11 +107,14 @@ export default async function DashboardPage({ searchParams }: Props) {
           <PrivacyAlgorithmPanel
             insights={insights}
             dpSnapshot={dpSnapshot}
-            budgetSpent24h={budgetSpent24h}
+            accounting={accounting}
             privacyErr={privacyErr}
           />
         ) : (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <p
+            data-testid="patient-dp-placeholder"
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
+          >
             EWMA and CUSUM overlays appear on your chart; aggregate DP releases are limited to clinician tooling in this
             demo.
           </p>

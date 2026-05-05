@@ -1,14 +1,18 @@
-import path from "path";
-import { defineConfig } from "vitest/config";
+import path from "node:path";
+
+import { configDefaults, defineConfig } from "vitest/config";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    exclude: [...configDefaults.exclude, "e2e/**"],
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(process.cwd(), "src"),
     },
   },
 });

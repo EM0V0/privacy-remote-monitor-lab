@@ -29,6 +29,10 @@ model AuditEvent {
   actorId   String?
   subject   String?
   metadata  String?
+  /// Prior entry hash (SHA-256 hex); genesis rows point at AUDIT_CHAIN_GENESIS_HASH.
+  chainPrevHash String?
+  /// Integrity seal over canonical payload including chainPrevHash (demo tamper-evidence).
+  chainEntryHash String?
   actor     User?    @relation(fields: [actorId], references: [id])
 }
 
@@ -41,12 +45,29 @@ model Observation {
   source    String   @default("seed")
 }
 
-/// Spend log for differential-privacy queries (composition / budget demos — not a formal DP system).
+/// Spend log for differential-privacy queries — supports linear ε sums plus composition bookkeeping.
 model PrivacyLedger {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  /// Privacy loss attributed to this release (epsilon in pure Laplace demo semantics).
+  /// Privacy loss attributed to this release (ε for Laplace mean demo).
   epsilon   Float
+  /// Companion δ for (ε,δ)-DP mechanisms — pure Laplace releases use 0 in this codebase.
+  delta     Float    @default(0)
+  /// Mechanism tag recorded at spend time (e.g. laplace_mean) — extends to future DP primitives.
+  mechanism   String   @default("laplace_mean")
+  /// Renyi order α stored for Mironov Laplace RDP provenance / composition diagnostics.
+  renyiOrder  Float    @default(8)
   queryType String
   metadata  String?
+}
+
+/// Sliding-window counters for coarse rate limiting (research-grade hygiene — not a full WAF).
+model RateLimitBucket {
+  id       String @id @default(cuid())
+  routeKey String
+  /// UNIX minute bucket (floor(epochMs / 60000)).
+  windowId Int
+  count    Int    @default(0)
+
+  @@unique([routeKey, windowId])
 }

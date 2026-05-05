@@ -9,6 +9,8 @@ import { writeAudit } from "@/lib/audit";
 import { hashClientIpHint } from "@/lib/ip-hint";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
+import { readPrivacyEnv } from "@/lib/privacy/budget";
+import { incrementRateLimit } from "@/lib/rate-limit";
 import {
   SESSION_COOKIE_NAME,
   createSessionToken,
@@ -40,6 +42,18 @@ export async function loginAction(
 
   const email = parsed.data.email.toLowerCase();
   const password = parsed.data.password;
+
+  const privacyEnv = readPrivacyEnv();
+  const rl = await incrementRateLimit({
+    routeKey: `login:${email}`,
+    maxPerWindow: privacyEnv.loginRateLimitPerMinute,
+  });
+  if (!rl.ok) {
+    return {
+      message: "Too many sign-in attempts this minute. Slow down and retry shortly.",
+    };
+  }
+
   const hdrs = await headers();
   const ipHint = hashClientIpHint(hdrs);
 

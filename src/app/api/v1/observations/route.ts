@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
+import { readPrivacyEnv } from "@/lib/privacy/budget";
+import { incrementRateLimit } from "@/lib/rate-limit";
 
 function getIngestSecret(): string {
   const s = process.env.INGEST_SECRET;
@@ -42,6 +44,17 @@ export async function POST(req: Request) {
     const secret = getIngestSecret();
     if (!timingSafeEqualString(secret, token)) {
       return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+    }
+
+    const fwd = req.headers.get("x-forwarded-for");
+    const ip = fwd?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
+    const privacyEnv = readPrivacyEnv();
+    const rl = await incrementRateLimit({
+      routeKey: `ingest:${ip}`,
+      maxPerWindow: privacyEnv.ingestRateLimitPerMinute,
+    });
+    if (!rl.ok) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429 });
     }
 
     const json = await req.json().catch(() => null);

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { computeMonitoringInsights } from "@/lib/monitoring-insights";
-import { epsilonSpentLast24h, readPrivacyEnv } from "@/lib/privacy/budget";
+import {
+  epsilonSpentLast24h,
+  getPrivacyAccountingSnapshot,
+  readPrivacyEnv,
+} from "@/lib/privacy/budget";
 import { getLatestDpReleaseFromAudit } from "@/lib/privacy/latest-audit-release";
 import { releasePrivateMean } from "@/lib/privacy/private-release";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +38,7 @@ export async function GET() {
   const spent = await epsilonSpentLast24h();
   const latest = await getLatestDpReleaseFromAudit();
   const env = readPrivacyEnv();
+  const accounting = await getPrivacyAccountingSnapshot();
 
   return NextResponse.json({
     role: session.role,
@@ -41,6 +46,7 @@ export async function GET() {
     budgetCap24h: env.dailyEpsilonCap,
     kMin: env.kMin,
     epsilonPerQuery: env.epsilonPerQuery,
+    privacyAccounting: accounting,
     latestDpRelease: latest,
     drift: insights.drift,
     cusumTriggered: insights.cusumTriggered,
