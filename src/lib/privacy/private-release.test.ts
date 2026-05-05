@@ -140,4 +140,77 @@ describe.skipIf(!process.env.DATABASE_URL)("releasePrivateMean evidence records"
     expect(release?.ledgerId).toBeNull();
     expect(release?.epsilon).toBe(0.5);
   });
+
+  it("fails closed when the DP clipping policy is invalid", async () => {
+    setPrivacyEnv({
+      DP_CLIP_MIN: "100",
+      DP_CLIP_MAX: "0",
+    });
+
+    const result = await releasePrivateMean({ scores: [10, 20, 30] });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected denial");
+    createdReleaseIds.push(result.evidence.releaseId);
+
+    expect(result.reason).toBe("invalid_policy_config");
+
+    const release = await prisma.privacyRelease.findUnique({
+      where: { id: result.evidence.releaseId },
+    });
+    expect(release?.status).toBe("denied");
+    expect(release?.denialReason).toBe("invalid_policy_config");
+    expect(release?.ledgerId).toBeNull();
+  });
+
+  it("records advanced-composition exhaustion before spending budget", async () => {
+    setPrivacyEnv({
+      DP_EPSILON_PER_QUERY: "0.5",
+      PRIVACY_EPSILON_DAILY_CAP: "100",
+      PRIVACY_EPSILON_COMPOSITION_CAP: "1",
+    });
+
+    const result = await releasePrivateMean({ scores: [10, 20, 30] });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected denial");
+    createdReleaseIds.push(result.evidence.releaseId);
+
+    expect(result.reason).toBe("composition_exhausted");
+
+    const release = await prisma.privacyRelease.findUnique({
+      where: { id: result.evidence.releaseId },
+    });
+    expect(release?.status).toBe("denied");
+    expect(release?.denialReason).toBe("composition_exhausted");
+    expect(release?.ledgerId).toBeNull();
+    expect(release?.advancedEpsilonAfter).toBeGreaterThan(1);
+  });
+
+  it("records RDP conversion exhaustion when the optional RDP gate is enabled", async () => {
+    setPrivacyEnv({
+      DP_EPSILON_PER_QUERY: "0.05",
+      PRIVACY_EPSILON_DAILY_CAP: "100",
+      PRIVACY_EPSILON_COMPOSITION_CAP: "100",
+      PRIVACY_ENABLE_RDP_GATE: "1",
+      PRIVACY_RDP_ALPHA: "2",
+      PRIVACY_RDP_REPORT_DELTA: "1e-300",
+    });
+
+    const result = await releasePrivateMean({ scores: [10, 20, 30] });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected denial");
+    createdReleaseIds.push(result.evidence.releaseId);
+
+    expect(result.reason).toBe("rdp_conversion_exhausted");
+
+    const release = await prisma.privacyRelease.findUnique({
+      where: { id: result.evidence.releaseId },
+    });
+    expect(release?.status).toBe("denied");
+    expect(release?.denialReason).toBe("rdp_conversion_exhausted");
+    expect(release?.ledgerId).toBeNull();
+    expect(release?.rdpGateEnabled).toBe(true);
+  });
 });

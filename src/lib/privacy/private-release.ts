@@ -18,6 +18,7 @@ import {
 } from "@/lib/privacy/rdp";
 
 export type ReleaseFailureReason =
+  | "invalid_policy_config"
   | "k_anonymity"
   | "budget_exhausted"
   | "composition_exhausted"
@@ -51,6 +52,17 @@ export type PrivateMeanRelease =
 
 function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
+}
+
+function finiteOr(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function validateReleasePolicy(env: ReturnType<typeof readPrivacyEnv>): string | null {
+  if (!(Number.isFinite(env.clipLo) && Number.isFinite(env.clipHi) && env.clipLo < env.clipHi)) {
+    return "DP clipping policy is invalid; DP_CLIP_MIN must be finite and lower than DP_CLIP_MAX.";
+  }
+  return null;
 }
 
 async function recordDeniedRelease(params: {
@@ -95,8 +107,8 @@ async function recordDeniedRelease(params: {
         noisyMean: null,
         trueMean: null,
         sensitivity: null,
-        clipLo: env.clipLo,
-        clipHi: env.clipHi,
+        clipLo: finiteOr(env.clipLo, 0),
+        clipHi: finiteOr(env.clipHi, 100),
         advancedEpsilonAfter: params.advancedEpsilonAfter ?? null,
         deltaPrime: env.deltaPrime,
         rdpGateEnabled: env.enableRdpGate,
@@ -151,6 +163,17 @@ export async function releasePrivateMean(params: {
     enableRdpGate,
   } = env;
   const n = params.scores.length;
+
+  const policyError = validateReleasePolicy(env);
+  if (policyError) {
+    const evidence = await recordDeniedRelease({
+      actorId: params.actorId,
+      n,
+      reason: "invalid_policy_config",
+      detail: policyError,
+    });
+    return { ok: false, reason: "invalid_policy_config", detail: policyError, evidence };
+  }
 
   if (n < kMin) {
     const detail = `Need at least ${kMin} samples for aggregate release (have ${n}).`;
