@@ -68,6 +68,8 @@ export function DashboardChart({
             dataKey="score"
             stroke="#0f766e"
             strokeWidth={2}
+            connectNulls
+            isAnimationActive={false}
             dot={(props) => {
               const payload = props.payload as MonitoringChartRow & { label: string };
               if (!payload?.alarm) return false;
@@ -82,6 +84,8 @@ export function DashboardChart({
             dataKey="ewma"
             stroke="#d97706"
             strokeWidth={2}
+            connectNulls
+            isAnimationActive={false}
             dot={false}
             name="EWMA"
             strokeDasharray="4 4"
