@@ -1,0 +1,52 @@
+// SQLite showcase DB — remote monitoring demo (Scheme A). Replace with Postgres + hardened auth for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Demo identity row — passwords stored as bcrypt hashes (never plaintext).
+/// `role` is `CLINICIAN` | `PATIENT` (SQLite has no native enum in Prisma).
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  role         String       @default("CLINICIAN")
+  createdAt    DateTime     @default(now())
+  auditEvents  AuditEvent[]
+}
+
+/// Tamper-evident event trail for accountability demos (not a compliance guarantee).
+model AuditEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  /// LOGIN_SUCCESS | LOGIN_FAILURE | LOGOUT | OBSERVATION_INGEST (extend as needed).
+  eventType String
+  actorId   String?
+  subject   String?
+  metadata  String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+}
+
+/// Timestamped telemetry sample (e.g. derived movement score — illustrative only).
+model Observation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  score     Float
+  /// Origin label for demos: seed | api | manual.
+  source    String   @default("seed")
+}
+
+/// Spend log for differential-privacy queries (composition / budget demos — not a formal DP system).
+model PrivacyLedger {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  /// Privacy loss attributed to this release (epsilon in pure Laplace demo semantics).
+  epsilon   Float
+  queryType String
+  metadata  String?
+}
