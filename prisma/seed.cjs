@@ -10,6 +10,9 @@ async function main() {
   const demoPassword = process.env.SHOWCASE_DEMO_PASSWORD ?? "showcase";
   const hash = bcrypt.hashSync(demoPassword, 12);
 
+  await prisma.privacyRelease.deleteMany();
+  await prisma.privacyLedger.deleteMany();
+  await prisma.rateLimitBucket.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.observation.deleteMany();
   await prisma.user.deleteMany();

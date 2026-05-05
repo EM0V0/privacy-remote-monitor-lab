@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import type { Prisma } from "@prisma/client";
 
 import {
   AUDIT_CHAIN_GENESIS_HASH,
@@ -17,11 +18,19 @@ export type AuditWriteInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type AuditWriteResult = {
+  id: string;
+  chainEntryHash: string;
+};
+
 /**
- * Persists an append-only audit row with a SHA-256 hash chain over canonical payloads.
+ * Persists an append-only audit row with a SHA-256 hash chain over canonical payloads
+ * using an existing transaction. Use this when the audited domain write must be atomic.
  */
-export async function writeAudit(input: AuditWriteInput): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+export async function writeAuditInTransaction(
+  tx: Prisma.TransactionClient,
+  input: AuditWriteInput,
+): Promise<AuditWriteResult> {
     const last = await tx.auditEvent.findFirst({
       orderBy: { createdAt: "desc" },
       select: { chainEntryHash: true },
@@ -54,7 +63,15 @@ export async function writeAudit(input: AuditWriteInput): Promise<void> {
         chainEntryHash,
       },
     });
-  });
+
+    return { id, chainEntryHash };
+}
+
+/**
+ * Persists an append-only audit row with a SHA-256 hash chain over canonical payloads.
+ */
+export async function writeAudit(input: AuditWriteInput): Promise<AuditWriteResult> {
+  return prisma.$transaction((tx) => writeAuditInTransaction(tx, input));
 }
 
 export type AuditChainIntegrityReport =

@@ -61,7 +61,38 @@ model PrivacyLedger {
   metadata  String?
 }
 
-/// Sliding-window counters for coarse rate limiting (research-grade hygiene — not a full WAF).
+/// Structured evidence for governed aggregate release attempts.
+/// AuditEvent keeps tamper evidence; this row keeps reviewer-friendly release facts.
+model PrivacyRelease {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  actorId   String?
+  auditEventId String?
+  auditEntryHash String?
+  ledgerId String?
+  purpose String @default("remote_monitoring_quality_review")
+  mechanism String @default("laplace_mean")
+  queryType String @default("cohort_mean")
+  cohortSize Int
+  epsilon Float
+  delta Float @default(0)
+  noisyMean Float?
+  trueMean Float?
+  sensitivity Float?
+  clipLo Float
+  clipHi Float
+  advancedEpsilonAfter Float?
+  deltaPrime Float
+  rdpGateEnabled Boolean @default(false)
+  rdpAlpha Float
+  rdpReportDelta Float
+  status String @default("released")
+  denialReason String?
+  detail String?
+  metadata String?
+}
+
+/// Sliding-window counters for coarse rate limiting (research-grade hygiene - not a full WAF).
 model RateLimitBucket {
   id       String @id @default(cuid())
   routeKey String

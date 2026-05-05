@@ -12,7 +12,8 @@ export type ComplianceReport = {
 };
 
 /**
- * Lightweight configuration sanity checks for demos — not a HIPAA/GDPR certification harness.
+ * Lightweight runtime configuration checks.
+ * This is not a HIPAA/GDPR/FDA certification harness.
  */
 export function evaluateRuntimeCompliance(env: NodeJS.ProcessEnv = process.env): ComplianceReport {
   const findings: ComplianceFinding[] = [];
@@ -32,6 +33,15 @@ export function evaluateRuntimeCompliance(env: NodeJS.ProcessEnv = process.env):
       code: "INGEST_SECRET_LENGTH",
       severity: "error",
       message: "INGEST_SECRET should be at least 16 characters before exposing telemetry ingest publicly.",
+    });
+  }
+
+  const adminAuditSecret = env.ADMIN_AUDIT_SECRET ?? "";
+  if (adminAuditSecret.length > 0 && adminAuditSecret.length < 16) {
+    findings.push({
+      code: "ADMIN_AUDIT_SECRET_LENGTH",
+      severity: "warn",
+      message: "ADMIN_AUDIT_SECRET should be at least 16 characters when audit verification is exposed.",
     });
   }
 
@@ -70,6 +80,26 @@ export function evaluateRuntimeCompliance(env: NodeJS.ProcessEnv = process.env):
     });
   }
 
+  const clipMin = Number(env.DP_CLIP_MIN ?? 0);
+  const clipMax = Number(env.DP_CLIP_MAX ?? 100);
+  if (!(Number.isFinite(clipMin) && Number.isFinite(clipMax) && clipMin < clipMax)) {
+    findings.push({
+      code: "DP_CLIP_RANGE_INVALID",
+      severity: "error",
+      message: "DP_CLIP_MIN must be lower than DP_CLIP_MAX so mean sensitivity is well-defined.",
+    });
+  }
+
+  const epsilonPerQuery = Number(env.DP_EPSILON_PER_QUERY ?? 0.5);
+  const dailyCap = Number(env.PRIVACY_EPSILON_DAILY_CAP ?? 4);
+  if (!(epsilonPerQuery > 0 && dailyCap >= epsilonPerQuery)) {
+    findings.push({
+      code: "PRIVACY_EPSILON_BUDGET_INVALID",
+      severity: "error",
+      message: "DP_EPSILON_PER_QUERY must be positive and no larger than PRIVACY_EPSILON_DAILY_CAP.",
+    });
+  }
+
   if (env.NODE_ENV === "production") {
     const demoPw = env.SHOWCASE_DEMO_PASSWORD ?? "";
     if (!demoPw || demoPw === "showcase") {
@@ -77,6 +107,22 @@ export function evaluateRuntimeCompliance(env: NodeJS.ProcessEnv = process.env):
         code: "SHOWCASE_PASSWORD_DEFAULT",
         severity: "warn",
         message: "Production deployments must rotate SHOWCASE_DEMO_PASSWORD away from demo defaults.",
+      });
+    }
+
+    if (!env.ALLOWED_ORIGINS) {
+      findings.push({
+        code: "ALLOWED_ORIGINS_UNSET",
+        severity: "warn",
+        message: "Production browser ingest should set ALLOWED_ORIGINS to reduce cross-origin abuse paths.",
+      });
+    }
+
+    if ((env.DATABASE_URL ?? "").startsWith("file:")) {
+      findings.push({
+        code: "SQLITE_IN_PRODUCTION",
+        severity: "warn",
+        message: "Production deployments should use managed Postgres or an equivalent operational database.",
       });
     }
   }

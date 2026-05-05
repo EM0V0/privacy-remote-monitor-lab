@@ -121,10 +121,36 @@ export function PrivacyAlgorithmPanel({ insights, dpSnapshot, accounting, privac
             RDP conversion reports an approximate (<span className="font-mono">ε, δ</span>) upper bound for reviewers — compare against the same composition cap used by advanced composition; it is not additional certified HIPAA/FDA evidence.
           </dd>
           {dpSnapshot ? (
-            <dd className="mt-2 font-mono text-sm text-slate-900">
-              Latest audited μ̂ = {dpSnapshot.noisyMean.toFixed(2)} (true μ = {dpSnapshot.trueMean.toFixed(2)}, n ={" "}
-              {dpSnapshot.n}, ε = {dpSnapshot.epsilon.toFixed(3)}, Δ = {dpSnapshot.sensitivity.toFixed(4)})
-            </dd>
+            <>
+              <dd className="mt-2 font-mono text-sm text-slate-900">
+                Latest released mean = {dpSnapshot.noisyMean.toFixed(2)} (true mean ={" "}
+                {dpSnapshot.trueMean.toFixed(2)}, n = {dpSnapshot.n}, epsilon ={" "}
+                {dpSnapshot.epsilon.toFixed(3)}, sensitivity = {dpSnapshot.sensitivity.toFixed(4)})
+              </dd>
+              {dpSnapshot.id ? (
+                <dd className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-600">
+                  <span className="font-semibold text-slate-700">Evidence:</span>{" "}
+                  release <span className="font-mono">{dpSnapshot.id}</span>
+                  {dpSnapshot.purpose ? <> for <span className="font-mono">{dpSnapshot.purpose}</span></> : null}
+                  {typeof dpSnapshot.clipLo === "number" && typeof dpSnapshot.clipHi === "number" ? (
+                    <>
+                      {" "}
+                      with clip range{" "}
+                      <span className="font-mono">
+                        [{dpSnapshot.clipLo}, {dpSnapshot.clipHi}]
+                      </span>
+                    </>
+                  ) : null}
+                  {dpSnapshot.auditEntryHash ? (
+                    <>
+                      {" "}
+                      and audit hash <span className="font-mono">{dpSnapshot.auditEntryHash.slice(0, 16)}...</span>
+                    </>
+                  ) : null}
+                  .
+                </dd>
+              ) : null}
+            </>
           ) : (
             <dd className="mt-2 text-xs text-slate-500">
               No successful release in audit log yet — use the button above (requires k threshold + mandatory DP gates).
